@@ -113,6 +113,11 @@ function formatLabel() {
   echo $_label
 }
 
+# usage: matchRegexp <string> <regular expression>
+function matchRegexp() {
+  # [[ "$1" =~ "$2" ]] should work but it is no more the case ...
+  [ $( echo "$1" |grep "$2" |wc -l ) -eq 1 ]
+}
 
 # usage: extractInformation <input as text> <tmpfile>
 function extractInformation() {
@@ -127,7 +132,7 @@ function extractInformation() {
 
   for information in $( cat "$_inputFile" |sed -e 's/[ ][*][ ]/ /g;' ); do
     # Checks if it is a date.
-    if [[ "$information" =~ "[0-9][0-9][.][0-9][0-9]" ]]; then
+    if matchRegexp "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
       # According to the mode (if in label mode, date is ignored).
       [ $_mode -eq $_MODE_LABEL ] && continue
 
@@ -140,7 +145,7 @@ function extractInformation() {
     fi
 
     # Checks if it is a value.
-    if [[ "$information" =~ "[0-9][0-9]*[,][0-9][0-9]" ]]; then
+    if matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !" && exit 3
 
@@ -155,6 +160,8 @@ function extractInformation() {
 
       # Prepares for next potential transaction.
       _mode=$_MODE_DATE
+
+      continue
     fi
 
     # Updates the label.
