@@ -18,10 +18,10 @@ DEFAULT_YEAR=$( date "+%Y" )
 DEBUG=1
 
 # Transactions exclusion pattern (some recurrent transaction which are embedded to GNU/Cash). 
-EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE|COTISATION"
+EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
 
 # Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez"
+REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez"
 
 #####################################################
 #                Defines usages.
@@ -147,7 +147,7 @@ function extractInformation() {
     # Checks if it is a value.
     if matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label, otherwise there is an error.
-      [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !" && exit 3
+      [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information" && exit 3
 
       # Memorizes the value.
       currentValue=$( echo "$information" |sed -e 's/,/./g;' )
