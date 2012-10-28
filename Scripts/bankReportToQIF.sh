@@ -15,7 +15,7 @@ textFile="$tmpDir/"$( date +"%s" )"-"$( basename $0 )"-tmp"
 tmpFile1="$textFile.tmp1"
 tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
-DEBUG=1
+DEBUG=2
 
 # Transactions exclusion pattern (some recurrent transaction which are embedded to GNU/Cash). 
 EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
@@ -71,7 +71,15 @@ done
 
 # usage: convertInputFile <input as PDF> <output as text>
 function convertInputFile() {
+  [ $DEBUG -ge 2 ] && echo "DEBUG: converting $1 to $2"
   pdftotext -layout "$1" "$2" 2>/dev/null
+  
+  # Replaces any slash to avoid issue.
+  sed -i 's@/@ @g;' "$2"
+  
+  # In some unknown situations, there is more than one space characters (2 or 3) at the beginning of important lines ...
+  #  ensures there is only one.
+  sed -i 's/^[ ][ ]\([0-9]\)/ \1/;s/^[ ][ ][ ]\([0-9]\)/ \1/;' "$2"
 }
 
 # usage: extractInformation <input as text> <output as text>
@@ -82,7 +90,8 @@ function manageValue() {
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
 
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ][0-9]|^[ ]{5,14}[A-Z0-9*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
+  # Information: until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
+  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ][0-9]|^[ ]{5,16}[A-Z0-9*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
     # Defines the value sign (it is '+' if and only if there is more than 173 characters).
@@ -172,7 +181,7 @@ function extractInformation() {
 
   echo "$transactionCount transactions extracted to $_tmpFile"
 
-  [ $DEBUG -eq 1 ] && cat "$_tmpFile"
+  [ $DEBUG -ge 1 ] && cat "$_tmpFile"
 }
 
 # usage: toQIFFormat <input as text> <output QIF file>
