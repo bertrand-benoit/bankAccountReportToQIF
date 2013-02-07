@@ -1,4 +1,4 @@
 *.class
 *#*#
 *~
-**/*.kate-swp
+*kate-swp
