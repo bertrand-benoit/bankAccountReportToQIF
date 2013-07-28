@@ -92,8 +92,12 @@ function manageValue() {
 
   # Information: until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
   plusSignCount=0
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,16}[A-Z0-9*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
+  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,16}[A-Z0-9*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+                            |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
+                            |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
+
+    # echo "information: $information ($_tmpFile)"
 
     # Defines the value sign (it is '+' if and only if there is more than 175 characters).
     [ $( echo "$information" |wc -m ) -gt 175 ] && sign="+" || sign="-"
