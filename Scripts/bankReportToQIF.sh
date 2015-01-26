@@ -120,8 +120,9 @@ function formatLabel() {
   # The aim is to remove useless information for GNU/Cash to match corresponding
   #  accounts from previous import.
 
-  # Removes useless "date info." from label.
+  # Removes useless "date info." and "SEPA info" from label.
   _label=$( echo "$_label" |sed -E 's/DU [0-9]{6}[ ]//g;s/FACTURE.S.[ ]CARTE[ ]4974XXXXXXXX4230[ ]//g;s/NUM[ ][0-9]{6}[ ]ECH.*$//g;' )
+  _label=$( echo "$_label" |sed -E 's/ECH[ ][0-9]{6}[ ]ID EMETTEUR.*$//g;' )
   _label=$( echo "$_label" |sed -E 's/RETRAIT DAB [0-9\/]{8}[ ][0-9Hh]{5}/RETRAIT DAB /g;s/[ ]BENOIT BERTRAND.*$//g;s/C.P.A.M..*$/C.P.A.M./' )
   _label=$( echo "$_label" |sed -E 's/[0-9]{0,}FRAIS SANTE[ ][0-9].*$/SANTE/;s/VTL[ ][0-9]{2}\/[0-9]{2}[ ][0-9]{2}[hH][0-9]{2}[ ]V[0-9]{1,}//' )
   _label=$( echo "$_label" |sed -E 's/DONALD VANN /DONALD /' )
@@ -162,7 +163,8 @@ function extractInformation() {
     fi
 
     # Checks if it is a value.
-    if matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]"; then
+    # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
+    if ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information" && exit 3
 
