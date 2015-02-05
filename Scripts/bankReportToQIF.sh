@@ -21,7 +21,7 @@ DEBUG=2
 EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
 
 # Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez"
+REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit"
 
 #####################################################
 #                Defines usages.
@@ -82,7 +82,7 @@ function convertInputFile() {
   #sed -i 's/^[ ][ ]\([0-9]\)/ \1/;s/^[ ][ ][ ]\([0-9]\)/ \1/;' "$2"
 }
 
-# usage: extractInformation <input as text> <output as text>
+# usage: manageValue <input as text> <output as text>
 # Adds '+' or '-' character to introduce value.
 function manageValue() {
   local _inputFile="$1"
@@ -90,11 +90,13 @@ function manageValue() {
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
 
-  # Information: until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
+  # Information:
+  #  - until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
+  #  - since SEPA information, so about ??/2013, there can be 17 space characters ...
   plusSignCount=0
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,16}[A-Z0-9*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,17}[A-Z0-9+*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
                             |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
-                            |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
+                            |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
     # echo "information: $information ($_tmpFile)"
@@ -162,9 +164,12 @@ function extractInformation() {
       continue
     fi
 
+    #echo "information: $information"
+
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
-    if ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
+    if    ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
+       && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information" && exit 3
 
