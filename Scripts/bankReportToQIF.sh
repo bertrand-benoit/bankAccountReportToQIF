@@ -21,7 +21,7 @@ DEBUG=2
 EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
 
 # Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit"
+REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence"
 
 #####################################################
 #                Defines usages.
