@@ -28,7 +28,7 @@ EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
 DEBIT_CREDIT_EXP="^.*Débit.*Crédit.*$"
 
 # Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERATIONS|Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence"
+REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERATIONS|Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence|Commissions sur services|de votre autorisation"
 
 #####################################################
 #                Defines usages.
@@ -147,14 +147,18 @@ function formatLabel() {
 
   # Removes useless "date info." and "SEPA info" from label.
   _label=$( echo "$_label" |sed -E 's/DU [0-9]{6}[ ]//g;s/FACTURE.S.[ ]CARTE[ ]4974XXXXXXXX[0-9]{4}[ ]//g;s/NUM[ ][0-9]{6}[ ]ECH.*$//g;' )
-  _label=$( echo "$_label" |sed -E 's/ECH[ ][0-9]{6}[ ]ID EMETTEUR.*$//g;' )
+  _label=$( echo "$_label" |sed -E 's/ECH[ ][0-9]{6}[ ][ID ]{0,3}//g;' )
+   _label=$( echo "$_label" |sed -E 's/EMETTEUR.*LIB/- /' )
   _label=$( echo "$_label" |sed -E 's/RETRAIT DAB [0-9\/]{8}[ ][0-9Hh]{5}/RETRAIT DAB /g;s/C.P.A.M..*$/C.P.A.M./' )
   _label=$( echo "$_label" |sed -E 's/[0-9]{0,}FRAIS SANTE[ ][0-9].*$/SANTE/;s/VTL[ ][0-9]{2}\/[0-9]{2}[ ][0-9]{2}[hH][0-9]{2}[ ]V[0-9]{1,}//' )
-  _label=$( echo "$_label" |sed -E 's/DONALD VANN /DONALD /' )
-  _label=$( echo "$_label" |sed -E 's/VIR SEPA RECU DE/VIR/;s/PRLV SEPA //' )
-  _label=$( echo "$_label" |sed -E 's/ECH [0-9]{6}[ID ]{0,3}//' )
+  _label=$( echo "$_label" |sed -E 's/VIR SEPA RECU DE/VIR/;s/VRST ESPECES/VIR ESPECES/;s/PRLV SEPA //' )
   _label=$( echo "$_label" |sed -e 's/^\(.*\)[ ]MOTIF.*$/\1/' )
+  _label=$( echo "$_label" |sed -E 's/DONALD VANN /DONALD /' )
 
+  # Sepcial management.
+  for specialLabelPart in "PAYPAL" "VIR ESPECES" "FREE MOBILE" "D.G.F.I.P. IMPOT" "ACM-IARD SA" "AVIVA ASSURANCE" "VOTRE ABONNEMENT INTERNET"; do
+    _label=$( echo "$_label" |sed -E "s/$specialLabelPart.*$/$specialLabelPart/" )
+  done
 
   # Returns the formatted label.
   echo $_label
