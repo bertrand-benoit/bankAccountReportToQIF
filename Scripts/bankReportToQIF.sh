@@ -15,7 +15,9 @@ textFile="$tmpDir/"$( date +"%s" )"-"$( basename $0 )"-tmp"
 tmpFile1="$textFile.tmp1"
 tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
-DEBUG=2
+DEBUG=1
+
+# TODO: nedd to check 2/3 transactions from August Report ... they were as NEGATIVE instead of positive :/
 
 # Threshold to define if this is a positive or negative operation.
 # Till May 2016, it was OK with 175; from then this threshold is defined dynamically.
@@ -170,13 +172,28 @@ function matchRegexp() {
   [ $( echo "$1" |grep "$2" |wc -l ) -eq 1 ]
 }
 
+# usage: registerExtractedInformation <currentDate> <label> <value> <file>
+function registerExtractedInformation() {
+    local _currentDate="$1" _currentLabel="$2" _currentValue="$3"
+    local _tmpFile="$4"
+
+    # Formats the label.
+    _currentLabel=$( formatLabel "$_currentLabel" )
+
+    # Prints information.
+    local _line="$_currentDate;$_currentLabel;$_currentValue"
+    [ $DEBUG -ge 2 ] && echo "[extractInformation][mode=$_mode] Registering extracted and formatted data: $_line"
+    echo "$_line" >> "$_tmpFile"
+}
+
 # usage: extractInformation <input as text> <tmpfile>
 function extractInformation() {
   local _inputFile="$1"
   local _tmpFile="$2"
-  local _MODE_DATE=1
+  local _MODE_INITIAL=1
   local _MODE_LABEL=2
-  local _mode=$_MODE_DATE
+  local _MODE_LABEL_EXTRA=3
+  local _mode=$_MODE_INITIAL
   local currentDate="", currentLabel="", currentValue=0
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
@@ -187,6 +204,11 @@ function extractInformation() {
       # According to the mode (if in label mode, date is ignored).
       [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Found a date in: $information"
       [ $_mode -eq $_MODE_LABEL ] && continue
+
+      # A new date has been found, and we are not managing label, so considering we reach a new line.
+      # N.B.: this new system allows to complete label with extra information till next date is found, or end
+      #  of report is reached.
+      [ "$_mode" != "$_MODE_INITIAL" ] && registerExtractedInformation "$currentDate" "$currentLabel" "$currentValue" "$_tmpFile"
 
       # Memorizes the date of this new transaction, and updates the mode.
       currentDate=$( echo "$information/$year" |sed -e 's/[.]/\//' )
@@ -202,21 +224,14 @@ function extractInformation() {
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
     if    ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
        && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
-      # Ensures the mode is label, otherwise there is an error.
-      [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
+      # Ensures the mode is label or label extra, otherwise there is an error.
+      [ $_mode -ne $_MODE_LABEL ] && [ $_mode -ne $_MODE_LABEL_EXTRA ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
 
       # Memorizes the value.
       currentValue=$( echo "$information" |sed -e 's/,/./g;' )
 
-      # Formats the label.
-      currentLabel=$( formatLabel "$currentLabel" )
-
-      # Prints information.
-      echo "$currentDate;$currentLabel;$currentValue" >> "$_tmpFile"
-      [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Registered following line: $currentDate;$currentLabel;$currentValue"
-
       # Prepares for next potential transaction.
-      _mode=$_MODE_DATE
+      _mode=$_MODE_LABEL_EXTRA
 
       continue
     fi
@@ -224,6 +239,9 @@ function extractInformation() {
     # Updates the label.
     currentLabel="$currentLabel $information"
   done
+
+  # Registers the last line, if any.
+  [ "$_mode" != "$_MODE_INITIAL" ] && registerExtractedInformation "$currentDate" "$currentLabel" "$currentValue" "$_tmpFile"
 
   transactionCount=$( cat "$_tmpFile" |wc -l )
 
