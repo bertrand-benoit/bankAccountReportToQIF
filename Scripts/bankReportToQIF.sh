@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Author: Bertrand BENOIT <bertrand.benoit@bsquare.no-ip.org>
-# Version: 1.0
+# Version: 2.0
 # Description: converts bank report (in pdf) to QIF format.
 #
 # usage: see usage function
@@ -34,11 +34,13 @@ REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERA
 #                Defines usages.
 #####################################################
 function usage {
-  echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [-h|--help]"
+  echo -e "BNP PDF Report Converter to QIF format, version 2.0."
+  echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [--debug <debug level>] [-h|--help]"
   echo -e "-h|--help\tshow this help"
-  echo -e "<input>\tbank report in PDF format"
+  echo -e "<input>\t\tbank report in PDF format"
   echo -e "<output>\tQIF format output file"
   echo -e "<year>\t\tyear to add to transaction (default: $DEFAULT_YEAR)"
+  echo -e "<debug level>\tlevel of debugging message"
   exit 1
 }
 
@@ -57,6 +59,9 @@ while [ "$1" != "" ]; do
   elif [ "$1" == "-y" ] || [ "$1" = "--year" ]; then
     shift
     year="$1"
+  elif [ "$1" = "--debug" ]; then
+    shift
+    DEBUG="$1"
   elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage
   else
