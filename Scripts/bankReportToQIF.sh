@@ -102,7 +102,7 @@ function manageValue() {
   #  - since SEPA information, so about ??/2013, there can be 17 space characters ...
   plusSignCount=0
   plusSignThreshold=$DEFAULT_THRESHOLD_POSITIVE_OPERATION
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,17}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
                             |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                             |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
@@ -141,11 +141,15 @@ function formatLabel() {
   #  accounts from previous import.
 
   # Removes useless "date info." and "SEPA info" from label.
-  _label=$( echo "$_label" |sed -E 's/DU [0-9]{6}[ ]//g;s/FACTURE.S.[ ]CARTE[ ]4974XXXXXXXX4230[ ]//g;s/NUM[ ][0-9]{6}[ ]ECH.*$//g;' )
+  _label=$( echo "$_label" |sed -E 's/DU [0-9]{6}[ ]//g;s/FACTURE.S.[ ]CARTE[ ]4974XXXXXXXX[0-9]{4}[ ]//g;s/NUM[ ][0-9]{6}[ ]ECH.*$//g;' )
   _label=$( echo "$_label" |sed -E 's/ECH[ ][0-9]{6}[ ]ID EMETTEUR.*$//g;' )
-  _label=$( echo "$_label" |sed -E 's/RETRAIT DAB [0-9\/]{8}[ ][0-9Hh]{5}/RETRAIT DAB /g;s/[ ]BENOIT BERTRAND.*$//g;s/C.P.A.M..*$/C.P.A.M./' )
+  _label=$( echo "$_label" |sed -E 's/RETRAIT DAB [0-9\/]{8}[ ][0-9Hh]{5}/RETRAIT DAB /g;s/C.P.A.M..*$/C.P.A.M./' )
   _label=$( echo "$_label" |sed -E 's/[0-9]{0,}FRAIS SANTE[ ][0-9].*$/SANTE/;s/VTL[ ][0-9]{2}\/[0-9]{2}[ ][0-9]{2}[hH][0-9]{2}[ ]V[0-9]{1,}//' )
   _label=$( echo "$_label" |sed -E 's/DONALD VANN /DONALD /' )
+  _label=$( echo "$_label" |sed -E 's/VIR SEPA RECU DE/VIR/;s/PRLV SEPA //' )
+  _label=$( echo "$_label" |sed -E 's/ECH [0-9]{6}[ID ]{0,3}//' )
+  _label=$( echo "$_label" |sed -e 's/^\(.*\)[ ]MOTIF.*$/\1/' )
+
 
   # Returns the formatted label.
   echo $_label
@@ -172,6 +176,7 @@ function extractInformation() {
     # Checks if it is a date.
     if matchRegexp "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
       # According to the mode (if in label mode, date is ignored).
+      [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Found a date in: $information"
       [ $_mode -eq $_MODE_LABEL ] && continue
 
       # Memorizes the date of this new transaction, and updates the mode.
@@ -182,7 +187,7 @@ function extractInformation() {
       continue
     fi
 
-    [ $DEBUG -ge 3 ] && echo "[extractInformation] Working on information: $information"
+    [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Working on information: $information"
 
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
@@ -199,6 +204,7 @@ function extractInformation() {
 
       # Prints information.
       echo "$currentDate;$currentLabel;$currentValue" >> "$_tmpFile"
+      [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Registered following line: $currentDate;$currentLabel;$currentValue"
 
       # Prepares for next potential transaction.
       _mode=$_MODE_DATE
