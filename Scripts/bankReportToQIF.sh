@@ -17,8 +17,15 @@ tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
 DEBUG=2
 
+# Threshold to define if this is a positive or negative operation.
+# Till May 2016, it was OK with 175; from then this threshold is defined dynamically.
+DEFAULT_THRESHOLD_POSITIVE_OPERATION=175
+
 # Transactions exclusion pattern (some recurrent transaction which are embedded to GNU/Cash).
 EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
+
+# Defines special regexp corresponding to header line with 'Debit' and 'Credit' keywords.
+DEBIT_CREDIT_EXP="^.*Débit.*Crédit.*$"
 
 # Bank report exclusion pattern (some useless bank report information).
 REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence"
@@ -94,15 +101,25 @@ function manageValue() {
   #  - until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
   #  - since SEPA information, so about ??/2013, there can be 17 space characters ...
   plusSignCount=0
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,17}[A-Z0-9+*]" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+  plusSignThreshold=$DEFAULT_THRESHOLD_POSITIVE_OPERATION
+  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,17}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
                             |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                             |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
-    # echo "information: $information ($_tmpFile)"
+    informationLength=$( echo "$information" |wc -m )
+    [ $DEBUG -ge 3 ] && echo "[manageValue] Working on information (length=$informationLength): $information"
 
-    # Defines the value sign (it is '+' if and only if there is more than 175 characters).
-    [ $( echo "$information" |wc -m ) -gt 175 ] && sign="+" || sign="-"
+    # Checks if this is a header line (one per page) with credit/debit keywords.
+    if matchRegexp "$information" "$DEBIT_CREDIT_EXP"; then
+      # Updates the sign threshold according to the position of Credit keyword which is at the end of the line.
+      plusSignThreshold=$(($informationLength-5))
+      [ $DEBUG -ge 2 ] && echo "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
+      continue;
+    fi
+
+    # Defines the value sign (it is '+' if and only if there is more than <threshold> characters).
+    [ $informationLength -gt $plusSignThreshold ] && sign="+" || sign="-"
     [ "$sign" = "+" ] && let plusSignCount++
 
     # Updates the potential value on the line.
@@ -112,7 +129,7 @@ function manageValue() {
     echo "$information" >> "$_tmpFile"
   done
 
-  [ $plusSignCount -gt 5 ] && echo -e "\E[31m\E[4mWARNING: it seems there is too much incoming after convert ($plusSignCount)\E[0m" >&2
+  [ $plusSignCount -gt 6 ] && echo -e "\E[31m\E[4mWARNING: it seems there is too much incoming after convert ($plusSignCount)\E[0m" >&2
 }
 
 # usage: formatLabel <label>
