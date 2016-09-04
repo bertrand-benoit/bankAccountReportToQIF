@@ -28,7 +28,7 @@ EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
 DEBIT_CREDIT_EXP="^.*Débit.*Crédit.*$"
 
 # Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence"
+REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERATIONS|Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence"
 
 #####################################################
 #                Defines usages.
@@ -123,7 +123,8 @@ function manageValue() {
     [ "$sign" = "+" ] && let plusSignCount++
 
     # Updates the potential value on the line.
-    information=$( echo "$information" |sed -e "s/\([0-9][0-9]*[,][0-9][0-9]\)$/$sign\1/g" )
+    information=$( echo "$information" |sed -e "s/\([0-9]\)[ ]\([0-9,]*\)$/\1\2/;s/\([0-9][0-9]*[,][0-9][0-9]\)$/$sign\1/g" )
+    [ $DEBUG -ge 3 ] && echo "[manageValue]  => updated information: $information"
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
@@ -181,14 +182,14 @@ function extractInformation() {
       continue
     fi
 
-    #echo "information: $information"
+    [ $DEBUG -ge 3 ] && echo "[extractInformation] Working on information: $information"
 
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
     if    ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
        && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label, otherwise there is an error.
-      [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information" && exit 3
+      [ $_mode -ne $_MODE_LABEL ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
 
       # Memorizes the value.
       currentValue=$( echo "$information" |sed -e 's/,/./g;' )
