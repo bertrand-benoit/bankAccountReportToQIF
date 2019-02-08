@@ -159,7 +159,7 @@ function formatLabel() {
 
   # Special management.
   for specialLabelPart in "PAYPAL" "VIR ESPECES" "FREE MOBILE" "D.G.F.I.P. IMPOT" "ACM-IARD SA" "AVIVA ASSURANCE" "VOTRE ABONNEMENT INTERNET" "GIE AFER" \
-    "VIR ASTON ITRADE FINANCE"; do
+    "VIR ASTON ITRADE FINANCE" "E.LECLERC" "DEICHMANN NANCY" "MC DONALD"; do
     _label=$( echo "$_label" |sed -E "s/$specialLabelPart.*$/$specialLabelPart/" )
   done
 
