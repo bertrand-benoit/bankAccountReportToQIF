@@ -130,7 +130,7 @@ function manageValue() {
 
     # Defines the value sign (it is '+' if and only if there is more than <threshold> characters).
     [ "$informationLength" -gt $plusSignThreshold ] && sign="+" || sign="-"
-    [ "$sign" = "+" ] && let plusSignCount++
+    [ "$sign" = "+" ] && plusSignCount=$((plusSignCount++))
 
     # Updates the potential value on the line.
     information=$( echo "$information" |sed -e "s/\([0-9]\)[ ]\([0-9,]*\)$/\1\2/;s/\([0-9][0-9]*[,][0-9][0-9]\)$/$sign\1/g" )
@@ -143,6 +143,7 @@ function manageValue() {
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
   [ $plusSignCount -gt 6 ] && warning "it seems there is too much incoming after convert ($plusSignCount)"
+  return 0
 }
 
 # usage: formatLabel <label>
@@ -252,6 +253,7 @@ function extractInformation() {
   writeMessage "$transactionCount transactions extracted to $_tmpFile"
 
   [ "$DEBUG" -ge 1 ] && writeMessage "$( sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m/g;s/;+\([0-9.]*\)$/;+\1/g;' < "$_tmpFile" )"
+  return 0
 }
 
 # usage: toQIFFormat <input as text> <output QIF file>
@@ -273,7 +275,11 @@ function toQIFFormat() {
 #                Instructions
 #####################################################
 
+CATEGORY="qif-PdfConvert"
 ! convertInputFile "$input" "$textFile" && errorMessage "Error while converting input file"
+CATEGORY="qif-ManageValue"
 manageValue "$textFile" "$tmpFile1"
+CATEGORY="qif-ExtractInformation"
 extractInformation "$tmpFile1" "$tmpFile2"
+CATEGORY="qif-WriteFile"
 [ -n "${output:-}" ] && toQIFFormat "$tmpFile2" "$output"
