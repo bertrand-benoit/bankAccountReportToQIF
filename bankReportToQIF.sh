@@ -113,11 +113,10 @@ function manageValue() {
   #  - since SEPA information, so about ??/2013, there can be 17 space characters ...
   plusSignCount=0
   plusSignThreshold=$DEFAULT_THRESHOLD_POSITIVE_OPERATION
-  for informationRaw in $( cat "$_inputFile" |grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
-                            |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
-                            |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
-    information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
+  while IFS= read -r informationRaw; do
+    # WARNING: in big values, there is a thousand separator; remove it in this case.
+    information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" )
     informationLength="${#information}"
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"
 
@@ -139,7 +138,9 @@ function manageValue() {
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
-  done
+  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" "$_inputFile" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+                              |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
+                              |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
   [ $plusSignCount -gt 6 ] && warning "it seems there is too much incoming after convert ($plusSignCount)"
 }
