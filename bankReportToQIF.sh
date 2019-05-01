@@ -121,7 +121,7 @@ function manageValue() {
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"
 
     # Checks if this is a header line (one per page) with credit/debit keywords.
-    if matchRegexp "$information" "$DEBIT_CREDIT_EXP"; then
+    if matchesOneOf "$information" "$DEBIT_CREDIT_EXP"; then
       # Updates the sign threshold according to the position of Credit keyword which is at the end of the line.
       plusSignThreshold=$((informationLength-5))
       [ "$DEBUG" -ge 2 ] && writeMessage "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
@@ -172,12 +172,6 @@ function formatLabel() {
   echo "$_label"
 }
 
-# usage: matchRegexp <string> <regular expression>
-function matchRegexp() {
-  #[[ "$1" =~ "$2" ]] should work but it is no more the case ...
-  [ "$( echo "$1" |grep -c "$2" )" -eq 1 ]
-}
-
 # usage: registerExtractedInformation <currentDate> <label> <value> <file>
 function registerExtractedInformation() {
     local _currentDate="$1" _currentLabel="$2" _currentValue="$3"
@@ -206,7 +200,7 @@ function extractInformation() {
 
   while IFS= read -r information; do
     # Checks if it is a date.
-    if matchRegexp "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
+    if matchesOneOf "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
       # According to the mode (if in label mode, date is ignored).
       [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Found a date in: $information"
       [ $_mode -eq $_MODE_LABEL ] && continue
@@ -231,8 +225,8 @@ function extractInformation() {
 
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
-    if ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
-       && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
+    if ! matchesOneOf "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
+       && matchesOneOf "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label or label extra, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && [ $_mode -ne $_MODE_LABEL_EXTRA ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
 
