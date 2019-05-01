@@ -204,7 +204,7 @@ function extractInformation() {
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
 
-  for information in $( cat "$_inputFile" |sed -e 's/[ ][*][ ]/ /g;' ); do
+  while IFS= read -r information; do
     # Checks if it is a date.
     if matchRegexp "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
       # According to the mode (if in label mode, date is ignored).
@@ -248,7 +248,7 @@ function extractInformation() {
     # Updates the label.
     currentLabel="$currentLabel$labelSeparator$information"
     labelSeparator=" "
-  done
+  done < <( tr -s '[:blank:]' '[\n*]' < "$_inputFile" )
 
   # Registers the last line, if any.
   [ "$_mode" != "$_MODE_INITIAL" ] && registerExtractedInformation "$currentDate" "$currentLabel" "$currentValue" "$_tmpFile"
