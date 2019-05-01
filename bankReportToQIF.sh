@@ -1,17 +1,22 @@
 #!/bin/bash
 #
-# Author: Bertrand BENOIT <bertrand.benoit@bsquare.no-ip.org>
-# Version: 2.0
-# Description: converts bank report (in pdf) to QIF format.
+# Author: Bertrand Benoit <mailto:contact@bertrand-benoit.net>
+# Version: 3.0
+# Description: converts bank account report (in pdf) to QIF format.
 #
 # usage: see usage function
+
+export VERBOSE=1
+export CATEGORY="qifConvert"
+
+currentDir=$( dirname "$( which "$0" )" )
+. "$currentDir/scripts-common/utilities.sh"
 
 #####################################################
 #                Configuration
 #####################################################
 
-tmpDir="/tmp"
-textFile="$tmpDir/"$( date +"%s" )"-"$( basename $0 )"-tmp"
+textFile="$DEFAULT_TMP_DIR/bankReportToQIF-tmp"
 tmpFile1="$textFile.tmp1"
 tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
@@ -36,14 +41,13 @@ REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERA
 #                Defines usages.
 #####################################################
 function usage {
-  echo -e "BNP PDF Report Converter to QIF format, version 2.0."
+  echo -e "BNP PDF Report Converter to QIF format, version 3.0."
   echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [--debug <debug level>] [-h|--help]"
   echo -e "-h|--help\tshow this help"
   echo -e "<input>\t\tbank report in PDF format"
   echo -e "<output>\tQIF format output file"
   echo -e "<year>\t\tyear to add to transaction (default: $DEFAULT_YEAR)"
   echo -e "<debug level>\tlevel of debugging message"
-  exit 1
 }
 
 #####################################################
@@ -51,7 +55,7 @@ function usage {
 #####################################################
 
 year=$DEFAULT_YEAR
-while [ "$1" != "" ]; do
+while [ -n "${1:-}" ]; do
   if [ "$1" == "-i" ] || [ "$1" = "--input" ]; then
     shift
     input="$1"
@@ -65,19 +69,19 @@ while [ "$1" != "" ]; do
     shift
     DEBUG="$1"
   elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-    usage
+    usage && exit 0
   else
-    echo "Unknown parameter '$1'"
     usage
+    errorMessage "Unknown parameter '$1'"
   fi
 
   shift
 done
 
-[ -z "$input" ] && echo -e "You must specify input file" >&2 && usage
-[ ! -f "$input" ] && echo -e "Specified input file '$input' must exist" >&2 && usage
+[ -z "${input:-}" ] && usage && errorMessage "You must specify input file"
+[ ! -f "${input:-}" ] && usage && errorMessage "Specified input file '$input' must exist"
 
-[ -z "$output" ] && [ -f "$output" ] && echo -e "Specified output file '$output' must NOT exist" >&2 && usage
+[ -n "${output:-}" ] && [ -f "${output:-}" ] && usage && errorMessage "Specified output file '$output' must NOT exist"
 
 #####################################################
 #                Functions
@@ -85,7 +89,7 @@ done
 
 # usage: convertInputFile <input as PDF> <output as text>
 function convertInputFile() {
-  [ $DEBUG -ge 2 ] && echo "DEBUG: converting $1 to $2"
+  [ "$DEBUG" -ge 2 ] && writeMessage "DEBUG: converting $1 to $2"
   pdftotext -layout "$1" "$2" 2>/dev/null
 
   # Replaces any slash to avoid issue.
@@ -115,13 +119,13 @@ function manageValue() {
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
     informationLength=$( echo "$information" |wc -m )
-    [ $DEBUG -ge 3 ] && echo "[manageValue] Working on information (length=$informationLength): $information"
+    [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"
 
     # Checks if this is a header line (one per page) with credit/debit keywords.
     if matchRegexp "$information" "$DEBIT_CREDIT_EXP"; then
       # Updates the sign threshold according to the position of Credit keyword which is at the end of the line.
       plusSignThreshold=$(($informationLength-5))
-      [ $DEBUG -ge 2 ] && echo "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
+      [ "$DEBUG" -ge 2 ] && writeMessage "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
       continue;
     fi
 
@@ -131,13 +135,13 @@ function manageValue() {
 
     # Updates the potential value on the line.
     information=$( echo "$information" |sed -e "s/\([0-9]\)[ ]\([0-9,]*\)$/\1\2/;s/\([0-9][0-9]*[,][0-9][0-9]\)$/$sign\1/g" )
-    [ $DEBUG -ge 3 ] && echo "[manageValue]  => updated information: $information"
+    [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue]  => updated information: $information"
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
   done
 
-  [ $plusSignCount -gt 6 ] && echo -e "\E[31m\E[4mWARNING: it seems there is too much incoming after convert ($plusSignCount)\E[0m" >&2
+  [ $plusSignCount -gt 6 ] && warning "it seems there is too much incoming after convert ($plusSignCount)"
 }
 
 # usage: formatLabel <label>
@@ -183,7 +187,7 @@ function registerExtractedInformation() {
 
     # Prints information.
     local _line="$_currentDate;$_currentLabel;$_currentValue"
-    [ $DEBUG -ge 2 ] && echo "[extractInformation][mode=$_mode] Registering extracted and formatted data: $_line"
+    [ "$DEBUG" -ge 2 ] && writeMessage "[extractInformation][mode=$_mode] Registering extracted and formatted data: $_line"
     echo "$_line" >> "$_tmpFile"
 }
 
@@ -203,7 +207,7 @@ function extractInformation() {
     # Checks if it is a date.
     if matchRegexp "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
       # According to the mode (if in label mode, date is ignored).
-      [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Found a date in: $information"
+      [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Found a date in: $information"
       [ $_mode -eq $_MODE_LABEL ] && continue
 
       # A new date has been found, and we are not managing label, so considering we reach a new line.
@@ -219,7 +223,7 @@ function extractInformation() {
       continue
     fi
 
-    [ $DEBUG -ge 3 ] && echo "[extractInformation][mode=$_mode] Working on information: $information"
+    [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Working on information: $information"
 
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
@@ -246,9 +250,9 @@ function extractInformation() {
 
   transactionCount=$( cat "$_tmpFile" |wc -l )
 
-  echo "$transactionCount transactions extracted to $_tmpFile"
+  writeMessage "$transactionCount transactions extracted to $_tmpFile"
 
-  [ $DEBUG -ge 1 ] && echo -e $( cat "$_tmpFile" |sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m\\n/g;s/;+\([0-9.]*\)$/;+\1\\n/g;' )
+  [ "$DEBUG" -ge 1 ] && writeMessage -e $( cat "$_tmpFile" |sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m\\n/g;s/;+\([0-9.]*\)$/;+\1\\n/g;' )
 }
 
 # usage: toQIFFormat <input as text> <output QIF file>
@@ -257,19 +261,19 @@ function toQIFFormat() {
   local _inputFile="$1"
   local _output="$2"
 
-  echo "These transaction will be ignored:"
+  writeMessage "These transaction will be ignored:"
   grep -E "$EXCLUDE_PATTERN" "$_inputFile"
 
   ( echo '!Type:Bank'; cat "$_inputFile" |grep -vE "$EXCLUDE_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) > "$_output"
 
-  echo "Transactions information converted to QIF format to $_output"
+  writeMessage "Transactions information converted to QIF format to $_output"
 }
 
 #####################################################
 #                Instructions
 #####################################################
 
-! convertInputFile "$input" "$textFile" && echo "Error while converting input file" >&2 && exit 2
+! convertInputFile "$input" "$textFile" && errorMessage "Error while converting input file"
 manageValue "$textFile" "$tmpFile1"
 extractInformation "$tmpFile1" "$tmpFile2"
-[ ! -z "$output" ] && toQIFFormat "$tmpFile2" "$output"
+[ -n "${output:-}" ] && toQIFFormat "$tmpFile2" "$output"
