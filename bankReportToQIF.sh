@@ -118,19 +118,19 @@ function manageValue() {
                             |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;s/[ ]/£/g;' ); do
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" |sed -e 's/£/ /g' )
 
-    informationLength=$( echo "$information" |wc -m )
+    informationLength="${#information}"
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"
 
     # Checks if this is a header line (one per page) with credit/debit keywords.
     if matchRegexp "$information" "$DEBIT_CREDIT_EXP"; then
       # Updates the sign threshold according to the position of Credit keyword which is at the end of the line.
-      plusSignThreshold=$(($informationLength-5))
+      plusSignThreshold=$((informationLength-5))
       [ "$DEBUG" -ge 2 ] && writeMessage "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
       continue;
     fi
 
     # Defines the value sign (it is '+' if and only if there is more than <threshold> characters).
-    [ $informationLength -gt $plusSignThreshold ] && sign="+" || sign="-"
+    [ "$informationLength" -gt $plusSignThreshold ] && sign="+" || sign="-"
     [ "$sign" = "+" ] && let plusSignCount++
 
     # Updates the potential value on the line.
@@ -168,13 +168,13 @@ function formatLabel() {
   done
 
   # Returns the formatted label.
-  echo $_label
+  echo "$_label"
 }
 
 # usage: matchRegexp <string> <regular expression>
 function matchRegexp() {
-  # [[ "$1" =~ "$2" ]] should work but it is no more the case ...
-  [ $( echo "$1" |grep "$2" |wc -l ) -eq 1 ]
+  #[[ "$1" =~ "$2" ]] should work but it is no more the case ...
+  [ "$( echo "$1" |grep -c "$2" )" -eq 1 ]
 }
 
 # usage: registerExtractedInformation <currentDate> <label> <value> <file>
@@ -199,7 +199,7 @@ function extractInformation() {
   local _MODE_LABEL=2
   local _MODE_LABEL_EXTRA=3
   local _mode=$_MODE_INITIAL
-  local currentDate="", currentLabel="", currentValue=0
+  local currentDate="", currentLabel="", labelSeparator="", currentValue=0
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
 
@@ -217,7 +217,10 @@ function extractInformation() {
 
       # Memorizes the date of this new transaction, and updates the mode.
       currentDate=$( echo "$information/$year" |sed -e 's/[.]/\//' )
+
+      # Resets all other variables.
       currentLabel=""
+      labelSeparator=""
       currentValue=0
       _mode=$_MODE_LABEL
       continue
@@ -227,13 +230,13 @@ function extractInformation() {
 
     # Checks if it is a value.
     # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
-    if    ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
+    if ! matchRegexp "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
        && matchRegexp "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
       # Ensures the mode is label or label extra, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && [ $_mode -ne $_MODE_LABEL_EXTRA ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
 
       # Memorizes the value.
-      currentValue=$( echo "$information" |sed -e 's/,/./g;' )
+      currentValue="${information//,/.}"
 
       # Prepares for next potential transaction.
       _mode=$_MODE_LABEL_EXTRA
@@ -242,17 +245,18 @@ function extractInformation() {
     fi
 
     # Updates the label.
-    currentLabel="$currentLabel $information"
+    currentLabel="$currentLabel$labelSeparator$information"
+    labelSeparator=" "
   done
 
   # Registers the last line, if any.
   [ "$_mode" != "$_MODE_INITIAL" ] && registerExtractedInformation "$currentDate" "$currentLabel" "$currentValue" "$_tmpFile"
 
-  transactionCount=$( cat "$_tmpFile" |wc -l )
+  transactionCount=$( wc -l < "$_tmpFile" )
 
   writeMessage "$transactionCount transactions extracted to $_tmpFile"
 
-  [ "$DEBUG" -ge 1 ] && writeMessage -e $( cat "$_tmpFile" |sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m\\n/g;s/;+\([0-9.]*\)$/;+\1\\n/g;' )
+  [ "$DEBUG" -ge 1 ] && writeMessage "$( cat "$_tmpFile" |sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m\\n/g;s/;+\([0-9.]*\)$/;+\1\\n/g;' )"
 }
 
 # usage: toQIFFormat <input as text> <output QIF file>
