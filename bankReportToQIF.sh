@@ -256,7 +256,7 @@ function extractInformation() {
 
   writeMessage "$transactionCount transactions extracted to $_tmpFile"
 
-  [ "$DEBUG" -ge 1 ] && writeMessage "$( cat "$_tmpFile" |sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m\\n/g;s/;+\([0-9.]*\)$/;+\1\\n/g;' )"
+  [ "$DEBUG" -ge 1 ] && writeMessage "$( sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m/g;s/;+\([0-9.]*\)$/;+\1/g;' < "$_tmpFile" )"
 }
 
 # usage: toQIFFormat <input as text> <output QIF file>
@@ -268,7 +268,8 @@ function toQIFFormat() {
   writeMessage "These transaction will be ignored:"
   grep -E "$EXCLUDE_PATTERN" "$_inputFile"
 
-  ( echo '!Type:Bank'; cat "$_inputFile" |grep -vE "$EXCLUDE_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) > "$_output"
+  echo '!Type:Bank' > "$_output"
+  ( grep -vE "$EXCLUDE_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) < "$_inputFile" >> "$_output"
 
   writeMessage "Transactions information converted to QIF format to $_output"
 }
