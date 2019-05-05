@@ -70,11 +70,11 @@ EXCLUDED_TRANSACTION_PATTERN="$LAST_READ_CONFIG"
 function usage {
   echo -e "BNP Bank PDF Account Report Converter to QIF format, version 3.0."
   echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [--debug <debug level>] [-h|--help]"
-  echo -e "-h|--help\tshow this help"
   echo -e "<input>\t\tbank report in PDF format"
   echo -e "<output>\tQIF format output file"
   echo -e "<year>\t\tyear to add to transaction (default: $DEFAULT_YEAR)"
   echo -e "<debug level>\tlevel of debugging message"
+  echo -e "-h|--help\tshow this help"
 }
 
 #####################################################
