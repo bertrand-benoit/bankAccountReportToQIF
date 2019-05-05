@@ -8,7 +8,7 @@
 #
 # usage: see usage function
 
-export VERBOSE=1
+export VERBOSE=0
 export CATEGORY="qifConvert"
 
 currentDir=$( dirname "$( which "$0" )" )
@@ -25,11 +25,20 @@ textFile="$DEFAULT_TMP_DIR/bankReportToQIF-tmp"
 tmpFile1="$textFile.tmp1"
 tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
-DEBUG=1
+DEBUG=0
 
-# Threshold to define if this is a positive or negative operation.
-# Till May 2016, it was OK with 175; from then this threshold is defined dynamically.
-DEFAULT_THRESHOLD_POSITIVE_OPERATION=175
+## Reads some configuration.
+# Account Name and type.
+checkAndSetConfig "config.account.name" "$CONFIG_TYPE_OPTION"
+ACCOUNT_NAME="$LAST_READ_CONFIG"
+checkAndSetConfig "config.account.type" "$CONFIG_TYPE_OPTION"
+ACCOUNT_TYPE="$LAST_READ_CONFIG"
+
+# Threshold to define if this is a positive or negative amount.
+checkAndSetConfig "config.defaultThresholdOfPositiveAmount" "$CONFIG_TYPE_OPTION"
+DEFAULT_THRESHOLD_POSITIVE_AMOUNT="$LAST_READ_CONFIG"
+checkAndSetConfig "config.tooMuchPositiveAmountWarningThreshold" "$CONFIG_TYPE_OPTION"
+TOO_MUCH_POSITIVE_AMOUNT_WARNING_THRESHOLD="$LAST_READ_CONFIG"
 
 ## Defines various matching patterns.
 checkAndSetConfig "patterns.debitNCreditHeader" "$CONFIG_TYPE_OPTION"
@@ -59,7 +68,7 @@ EXCLUDED_TRANSACTION_PATTERN="$LAST_READ_CONFIG"
 #                Defines usages.
 #####################################################
 function usage {
-  echo -e "BNP PDF Report Converter to QIF format, version 3.0."
+  echo -e "BNP Bank PDF Account Report Converter to QIF format, version 3.0."
   echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [--debug <debug level>] [-h|--help]"
   echo -e "-h|--help\tshow this help"
   echo -e "<input>\t\tbank report in PDF format"
@@ -72,7 +81,7 @@ function usage {
 #                Command line management.
 #####################################################
 
-year=$DEFAULT_YEAR
+year="$DEFAULT_YEAR"
 while [ -n "${1:-}" ]; do
   if [ "$1" == "-i" ] || [ "$1" = "--input" ]; then
     shift
@@ -85,7 +94,7 @@ while [ -n "${1:-}" ]; do
     year="$1"
   elif [ "$1" = "--debug" ]; then
     shift
-    DEBUG="$1"
+    DEBUG="${1:-0}"
   elif [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     usage && exit 0
   else
@@ -110,28 +119,21 @@ function convertInputFile() {
   [ "$DEBUG" -ge 2 ] && writeMessage "DEBUG: converting $1 to $2"
   pdftotext -layout "$1" "$2" 2>/dev/null
 
-  # Replaces any slash to avoid issue.
+  # Replaces any slash(es) to avoid issue.
   sed -i 's@/@ @g;' "$2"
-
-  # In some unknown situations, there is more than one space characters (2 or 3) at the beginning of important lines ...
-  #  ensures there is only one.
-  #sed -i 's/^[ ][ ]\([0-9]\)/ \1/;s/^[ ][ ][ ]\([0-9]\)/ \1/;' "$2"
 }
 
 # usage: manageValue <input as text> <output as text>
-# Adds '+' or '-' character to introduce value.
+# Adds '+' or '-' character to introduce amount.
 function manageValue() {
   local _inputFile="$1"
   local _tmpFile="$2"
+  local plusSignCount=0
+  local plusSignThreshold="$DEFAULT_THRESHOLD_POSITIVE_AMOUNT"
 
   [ -f "$_tmpFile" ] && rm -f "$_tmpFile"
 
-  # Information:
-  #  - until banq report of 09/2012, there was always between 5 and 14 space characters; since then, there can be 16 ...
-  #  - since SEPA information, so about ??/2013, there can be 17 space characters ...
-  plusSignCount=0
-  plusSignThreshold=$DEFAULT_THRESHOLD_POSITIVE_OPERATION
-
+  # Manages all information from text file (result of PDF file convert).
   while IFS= read -r informationRaw; do
     # WARNING: in big values, there is a thousand separator; remove it in this case.
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" )
@@ -147,10 +149,13 @@ function manageValue() {
     fi
 
     # Defines the value sign (it is '+' if and only if there is more than <threshold> characters).
-    [ "$informationLength" -gt $plusSignThreshold ] && sign="+" || sign="-"
-    [ "$sign" = "+" ] && plusSignCount=$((plusSignCount++))
+    sign="-"
+    if [ "$informationLength" -gt $plusSignThreshold ]; then
+      sign="+"
+      plusSignCount=$((plusSignCount+1))
+    fi
 
-    # Updates the potential value on the line.
+    # Updates the potential amount on the line.
     information=$( echo "$information" |sed -e "s/\([0-9]\)[ ]\([0-9,]*\)$/\1\2/;s/\([0-9][0-9]*[,][0-9][0-9]\)$/$sign\1/g" )
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue]  => updated information: $information"
 
@@ -160,7 +165,7 @@ function manageValue() {
                               |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
-  [ $plusSignCount -gt 6 ] && warning "it seems there is too much incoming after convert ($plusSignCount)"
+  [ $plusSignCount -gt $TOO_MUCH_POSITIVE_AMOUNT_WARNING_THRESHOLD ] && warning "There may have too much positive/incoming amount after convert (current Threshold=$plusSignCount). You may check if this is a normal situation."
   return 0
 }
 
@@ -272,10 +277,20 @@ function toQIFFormat() {
   local _inputFile="$1"
   local _output="$2"
 
-  writeMessage "These transaction will be ignored:"
-  grep --silent -E "$EXCLUDED_TRANSACTION_PATTERN" "$_inputFile"
+  # Informs.
+  if [ "$DEBUG" -ge 1 ]; then
+    writeMessage "These transaction(s) will be ignored:"
+    grep --silent -E "$EXCLUDED_TRANSACTION_PATTERN" "$_inputFile"
+  fi
 
-  echo '!Type:Bank' > "$_output"
+  # Cleans output file if needed.
+  rm -f "$_output"
+
+  # Adds account name and type, if defined.
+  [ -n "$ACCOUNT_NAME" ] && echo -e "!Account\nN$ACCOUNT_NAME\n^" > "$_output"
+  [ -n "$ACCOUNT_TYPE" ] && echo -e "!$ACCOUNT_TYPE" >> "$_output"
+
+  # Adds all - not excluded - transactions.
   ( grep -vE "$EXCLUDED_TRANSACTION_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) < "$_inputFile" >> "$_output"
 
   writeMessage "Transactions information converted to QIF format to $_output"
@@ -287,6 +302,7 @@ function toQIFFormat() {
 #####################################################
 
 CATEGORY="qif-PdfConvert"
+writeMessage "Starting convert from PDF file '$input' ..."
 ! convertInputFile "$input" "$textFile" && errorMessage "Error while converting input file"
 CATEGORY="qif-ManageValue"
 manageValue "$textFile" "$tmpFile1"
