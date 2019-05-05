@@ -4,12 +4,17 @@
 # Version: 3.0
 # Description: converts bank account report (in pdf) to QIF format.
 #
+# Cf QIF documentation: https://en.wikipedia.org/wiki/Quicken_Interchange_Format
+#
 # usage: see usage function
 
 export VERBOSE=1
 export CATEGORY="qifConvert"
 
 currentDir=$( dirname "$( which "$0" )" )
+export GLOBAL_CONFIG_FILE="$currentDir/default.conf"
+export CONFIG_FILE="${HOME:-/home/$( whoami )}/.config/bankReportToQIF.conf"
+
 . "$currentDir/scripts-common/utilities.sh"
 
 #####################################################
@@ -22,20 +27,33 @@ tmpFile2="$textFile.tmp2"
 DEFAULT_YEAR=$( date "+%Y" )
 DEBUG=1
 
-# TODO: nedd to check 2/3 transactions from August Report ... they were as NEGATIVE instead of positive :/
-
 # Threshold to define if this is a positive or negative operation.
 # Till May 2016, it was OK with 175; from then this threshold is defined dynamically.
 DEFAULT_THRESHOLD_POSITIVE_OPERATION=175
 
-# Transactions exclusion pattern (some recurrent transaction which are embedded to GNU/Cash).
-EXCLUDE_PATTERN="PENSION|LOYER|CIRCLE"
+## Defines various matching patterns.
+checkAndSetConfig "patterns.debitNCreditHeader" "$CONFIG_TYPE_OPTION"
+DEBIT_CREDIT_PATTERN="$LAST_READ_CONFIG"
+checkAndSetConfig "patterns.date" "$CONFIG_TYPE_OPTION"
+DATE_PATTERN="$LAST_READ_CONFIG"
+checkAndSetConfig "patterns.label.amountWithCurrency" "$CONFIG_TYPE_OPTION"
+LABEL_AMOUNT_WITH_CURRENCY_PATTERN="$LAST_READ_CONFIG"
+checkAndSetConfig "patterns.amount" "$CONFIG_TYPE_OPTION"
+AMOUNT_PATTERN="$LAST_READ_CONFIG"
 
-# Defines special regexp corresponding to header line with 'Debit' and 'Credit' keywords.
-DEBIT_CREDIT_EXP="^.*D[ \t]*[eé]bit.*C[ \t]*r[eé]dit.*$"
+## Defines various exclusion patterns.
+checkAndSetConfig "patterns.label.removeMatchingParts" "$CONFIG_TYPE_OPTION"
+REMOVE_LABEL_MATCHING_PARTS="$LAST_READ_CONFIG"
+checkAndSetConfig "patterns.label.removeAllAfterMatchingParts" "$CONFIG_TYPE_OPTION"
+REMOVE_LABEL_PARTS_AFTER_MATCHING="$LAST_READ_CONFIG"
 
-# Bank report exclusion pattern (some useless bank report information).
-REPORT_EXCLUDE_PATTERN="SOLDE CREDITEUR|SOLDE DEBITEUR|SOLDE AU |TOTAL DES OPERATIONS|Rappel|opérations courante|www.bnpparibas.net|Minitel|code secret|Votre conseiller|tarification|prélévé au début|mois suivant|ce tarif|s'appliquent|conseiller|bénéficiez|carte à débit|Conseiller en agence|Commissions sur services|de votre autorisation|Médiateur|TAEG|saisine"
+# Bank report exclusion pattern (e.g. some useless bank report information like address ...).
+checkAndSetConfig "patterns.excludedPartsFromReport" "$CONFIG_TYPE_OPTION"
+EXCLUDED_PARTS_FROM_REPORT_PATTERN="$LAST_READ_CONFIG"
+
+# Transactions exclusion pattern (e.g. some recurrent transaction which are embedded to GNU/Cash).
+checkAndSetConfig "patterns.excludedTransactions" "$CONFIG_TYPE_OPTION"
+EXCLUDED_TRANSACTION_PATTERN="$LAST_READ_CONFIG"
 
 #####################################################
 #                Defines usages.
@@ -121,7 +139,7 @@ function manageValue() {
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"
 
     # Checks if this is a header line (one per page) with credit/debit keywords.
-    if matchesOneOf "$information" "$DEBIT_CREDIT_EXP"; then
+    if matchesOneOf "$information" "$DEBIT_CREDIT_PATTERN"; then
       # Updates the sign threshold according to the position of Credit keyword which is at the end of the line.
       plusSignThreshold=$((informationLength-5))
       [ "$DEBUG" -ge 2 ] && writeMessage "[manageValue] Defined/Updated + sign threshold to $plusSignThreshold ..."
@@ -138,7 +156,7 @@ function manageValue() {
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
-  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_EXP" "$_inputFile" |grep -vE "$REPORT_EXCLUDE_PATTERN" \
+  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_PATTERN" "$_inputFile" |grep -vE "$EXCLUDED_PARTS_FROM_REPORT_PATTERN" \
                               |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
@@ -147,27 +165,19 @@ function manageValue() {
 }
 
 # usage: formatLabel <label>
+# The aim is to remove useless information for GNU/Cash to improve accounts matching according to previous import.
 function formatLabel() {
   local _label="$1"
 
-  # The aim is to remove useless information for GNU/Cash to match corresponding
-  #  accounts from previous import.
+  # Removes label's part exactly matching.
+  while IFS= read -r -d '|' formatLabelPattern; do
+    _label=$( sed -E "s/$formatLabelPattern//;" <<< "$_label" )
+  done <<< "$REMOVE_LABEL_MATCHING_PARTS"
 
-  # Removes useless "date info." and "SEPA info" from label.
-  _label=$( echo "$_label" |sed -E 's/DU [0-9]{6}[ ]//g;s/FACTURE.S.[ ]CARTE[ ]4974XXXXXXXX[0-9]{4}[ ]//g;s/NUM[ ][0-9]{6}[ ]ECH.*$//g;' )
-  _label=$( echo "$_label" |sed -E 's/ECH[ ][0-9]{6}[ ][ID ]{0,3}//g;' )
-  _label=$( echo "$_label" |sed -E 's/EMETTEUR.*LIB/- /' )
-  _label=$( echo "$_label" |sed -E 's/RETRAIT DAB [0-9\/ ]{8}[ ][0-9Hh]{5}.*/RETRAIT DAB /g;s/C.P.A.M..*$/C.P.A.M./' )
-  _label=$( echo "$_label" |sed -E 's/[0-9]{0,}FRAIS SANTE[ ][0-9].*$/SANTE/;s/VTL[ ][0-9]{2}\/[0-9]{2}[ ][0-9]{2}[hH][0-9]{2}[ ]V[0-9]{1,}//' )
-  _label=$( echo "$_label" |sed -E 's/VIR SEPA RECU DE/VIR/;s/VRST ESPECES/VIR ESPECES/;s/PRLV SEPA //' )
-  _label=$( echo "$_label" |sed -e 's/^\(.*\)[ ]MOTIF.*$/\1/' )
-  _label=$( echo "$_label" |sed -E 's/DONALD VANN /DONALD /' )
-
-  # Special management.
-  for specialLabelPart in "PAYPAL" "VIR ESPECES" "FREE MOBILE" "D.G.F.I.P. IMPOT" "ACM-IARD SA" "AVIVA ASSURANCE" "VOTRE ABONNEMENT INTERNET" "GIE AFER" \
-    "VIR ASTON ITRADE FINANCE" "E.LECLERC" "DEICHMANN NANCY" "MC DONALD"; do
-    _label=$( echo "$_label" |sed -E "s/$specialLabelPart.*$/$specialLabelPart/" )
-  done
+  # Cuts label's part AFTER matching.
+  while IFS= read -r -d '|' formatLabelPattern; do
+    _label=$( sed -E "s/$formatLabelPattern.*$/$formatLabelPattern/;" <<< "$_label" )
+  done <<< "$REMOVE_LABEL_PARTS_AFTER_MATCHING"
 
   # Returns the formatted label.
   echo "$_label"
@@ -201,7 +211,7 @@ function extractInformation() {
 
   while IFS= read -r information; do
     # Checks if it is a date.
-    if matchesOneOf "$information" "^[0-9][0-9][.][0-9][0-9]$"; then
+    if matchesOneOf "$information" "$DATE_PATTERN"; then
       # According to the mode (if in label mode, date is ignored).
       [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Found a date in: $information"
       [ $_mode -eq $_MODE_LABEL ] && continue
@@ -224,10 +234,10 @@ function extractInformation() {
 
     [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Working on information: $information"
 
-    # Checks if it is a value.
-    # N.B.: makes it NOT match if there is E like EUR after the number, like it is the case with Square Enix entries.
-    if ! matchesOneOf "$information" "[0-9][0-9]*[,][0-9][0-9]EUR" \
-       && matchesOneOf "$information" "[0-9]*[.]*[0-9]*[,][0-9][0-9]"; then
+    # Checks if it is an amount.
+    # Warning: ignore information if it contains currency because it means it is still a part of the label.
+    if  ! matchesOneOf "$information" "$LABEL_AMOUNT_WITH_CURRENCY_PATTERN" \
+       && matchesOneOf "$information" "$AMOUNT_PATTERN"; then
       # Ensures the mode is label or label extra, otherwise there is an error.
       [ $_mode -ne $_MODE_LABEL ] && [ $_mode -ne $_MODE_LABEL_EXTRA ] && echo "Label not found !  Information=$information (check $_tmpFile)" && exit 3
 
@@ -263,12 +273,13 @@ function toQIFFormat() {
   local _output="$2"
 
   writeMessage "These transaction will be ignored:"
-  grep -E "$EXCLUDE_PATTERN" "$_inputFile"
+  grep --silent -E "$EXCLUDED_TRANSACTION_PATTERN" "$_inputFile"
 
   echo '!Type:Bank' > "$_output"
-  ( grep -vE "$EXCLUDE_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) < "$_inputFile" >> "$_output"
+  ( grep -vE "$EXCLUDED_TRANSACTION_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) < "$_inputFile" >> "$_output"
 
   writeMessage "Transactions information converted to QIF format to $_output"
+  return 0
 }
 
 #####################################################
@@ -283,3 +294,4 @@ CATEGORY="qif-ExtractInformation"
 extractInformation "$tmpFile1" "$tmpFile2"
 CATEGORY="qif-WriteFile"
 [ -n "${output:-}" ] && toQIFFormat "$tmpFile2" "$output"
+exit 0
