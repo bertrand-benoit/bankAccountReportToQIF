@@ -18,6 +18,15 @@ git submodule update
 This way, [scripts-common](https://github.com/bertrand-benoit/scripts-common) project will be available and you can use this tool.
 
 
+## Configuration files
+This tools uses the configuration file feature of the [scripts-common](https://github.com/bertrand-benoit/scripts-common) project.
+
+The global configuration file, called **default.conf**, is in the root directory of this repository.
+It contains default configuration for this tool, and should NOT be edited.
+
+You can/should create your own configuration file **~/.config/bankReportToQIF.conf** and override any value you want to adapt output QIF to your needs.
+
+
 ## Usage
 ```bash
 BNP Bank PDF Account Report Converter to QIF format, version 3.0.
