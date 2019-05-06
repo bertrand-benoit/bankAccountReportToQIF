@@ -3,6 +3,21 @@ This is a free tool allowing to convert Bank PDF Account reports to QIF files.
 
 This script uses my [scripts-common](https://github.com/bertrand-benoit/scripts-common) project, you can find on GitHub.
 
+
+## Requirements
+This tool used [pdftotext](https://poppler.freedesktop.org/) which must be priorly installed. It is generally available with your package manager.
+
+
+## First time you clone this repository
+After the first time you clone this repository, you need to initialize git submodule:
+```bash
+git submodule init
+git submodule update
+```
+
+This way, [scripts-common](https://github.com/bertrand-benoit/scripts-common) project will be available and you can use this tool.
+
+
 ## Usage
 ```bash
 BNP Bank PDF Account Report Converter to QIF format, version 3.0.

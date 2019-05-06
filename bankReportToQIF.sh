@@ -8,14 +8,18 @@
 #
 # usage: see usage function
 
-export VERBOSE=0
 export CATEGORY="qifConvert"
 
 currentDir=$( dirname "$( which "$0" )" )
 export GLOBAL_CONFIG_FILE="$currentDir/default.conf"
 export CONFIG_FILE="${HOME:-/home/$( whoami )}/.config/bankReportToQIF.conf"
 
-. "$currentDir/scripts-common/utilities.sh"
+scriptsCommonUtilities="$currentDir/scripts-common/utilities.sh"
+[ ! -f "$scriptsCommonUtilities" ] && echo -e "ERROR: scripts-common utilities not found, you must initialize your git submodule once after you cloned the repository:\ngit submodule init\ngit submodule update" >&2 && exit 1
+. "$scriptsCommonUtilities"
+
+# Ensures third-party tools are installed.
+checkBin pdftotext || errorMessage "This tool requires pdftotext. Install it please, and then run this tool again."
 
 #####################################################
 #                Configuration
@@ -165,7 +169,7 @@ function manageValue() {
                               |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
-  [ $plusSignCount -gt $TOO_MUCH_POSITIVE_AMOUNT_WARNING_THRESHOLD ] && warning "There may have too much positive/incoming amount after convert (current Threshold=$plusSignCount). You may check if this is a normal situation."
+  [ $plusSignCount -gt "$TOO_MUCH_POSITIVE_AMOUNT_WARNING_THRESHOLD" ] && warning "There may have too much positive/incoming amount after convert (current Threshold=$plusSignCount). You may check if this is a normal situation."
   return 0
 }
 
@@ -263,8 +267,12 @@ function extractInformation() {
   # Registers the last line, if any.
   [ "$_mode" != "$_MODE_INITIAL" ] && registerExtractedInformation "$currentDate" "$currentLabel" "$currentValue" "$_tmpFile"
 
-  transactionCount=$( wc -l < "$_tmpFile" )
+  if [ ! -f "$_tmpFile" ]; then
+    writeMessage "No transaction extracted to $_tmpFile"
+    return 1
+  fi
 
+  transactionCount=$( wc -l < "$_tmpFile" )
   writeMessage "$transactionCount transactions extracted to $_tmpFile"
 
   [ "$DEBUG" -ge 1 ] && writeMessage "$( sed -e 's/;-\([0-9.]*\)$/;\\E[37;41m-\1\\E[0m/g;s/;+\([0-9.]*\)$/;+\1/g;' < "$_tmpFile" )"
@@ -304,10 +312,13 @@ function toQIFFormat() {
 CATEGORY="qif-PdfConvert"
 writeMessage "Starting convert from PDF file '$input' ..."
 ! convertInputFile "$input" "$textFile" && errorMessage "Error while converting input file"
+
 CATEGORY="qif-ManageValue"
 manageValue "$textFile" "$tmpFile1"
+
 CATEGORY="qif-ExtractInformation"
-extractInformation "$tmpFile1" "$tmpFile2"
+extractInformation "$tmpFile1" "$tmpFile2" || exit 1
+
 CATEGORY="qif-WriteFile"
 [ -n "${output:-}" ] && toQIFFormat "$tmpFile2" "$output"
 exit 0
