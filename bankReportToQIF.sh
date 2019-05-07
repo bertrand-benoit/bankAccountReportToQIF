@@ -10,12 +10,13 @@
 
 export CATEGORY="qifConvert"
 
-currentDir=$( dirname "$( which "$0" )" )
+currentDir=$( dirname "$( command -v "$0" )" )
 export GLOBAL_CONFIG_FILE="$currentDir/default.conf"
 export CONFIG_FILE="${HOME:-/home/$( whoami )}/.config/bankReportToQIF.conf"
 
 scriptsCommonUtilities="$currentDir/scripts-common/utilities.sh"
 [ ! -f "$scriptsCommonUtilities" ] && echo -e "ERROR: scripts-common utilities not found, you must initialize your git submodule once after you cloned the repository:\ngit submodule init\ngit submodule update" >&2 && exit 1
+# shellcheck disable=1090
 . "$scriptsCommonUtilities"
 
 # Ensures third-party tools are installed.
@@ -140,6 +141,7 @@ function manageValue() {
   # Manages all information from text file (result of PDF file convert).
   while IFS= read -r informationRaw; do
     # WARNING: in big values, there is a thousand separator; remove it in this case.
+    # shellcheck disable=2001
     information=$( echo "$informationRaw" |sed -e "s/\([0-9][0-9]*\)[.]\([0-9][0-9]*[,][0-9][0-9]\)$/\1\2/g;" )
     informationLength="${#information}"
     [ "$DEBUG" -ge 3 ] && writeMessage "[manageValue] Working on information (length=$informationLength): $information"

@@ -3,10 +3,8 @@ This is a free tool allowing to convert Bank PDF Account reports to QIF files.
 
 This script uses my [scripts-common](https://github.com/bertrand-benoit/scripts-common) project, you can find on GitHub.
 
-
 ## Requirements
 This tool used [pdftotext](https://poppler.freedesktop.org/) which must be priorly installed. It is generally available with your package manager.
-
 
 ## First time you clone this repository
 After the first time you clone this repository, you need to initialize git submodule:
@@ -24,7 +22,6 @@ The global configuration file, called **default.conf**, is in the root directory
 It contains default configuration for this tool, and should NOT be edited.
 
 You can/should create your own configuration file **~/.config/bankReportToQIF.conf** and override any value you want to adapt output QIF to your needs.
-
 
 ## Usage
 ```bash
