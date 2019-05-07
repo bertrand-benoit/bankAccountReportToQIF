@@ -17,7 +17,6 @@ git submodule update
 
 This way, [scripts-common](https://github.com/bertrand-benoit/scripts-common) project will be available and you can use this tool.
 
-
 ## Configuration files
 This tools uses the configuration file feature of the [scripts-common](https://github.com/bertrand-benoit/scripts-common) project.
 
