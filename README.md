@@ -1,4 +1,7 @@
 # Bank Account Report To QIF Converter version 3.0.0
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b9d06cb55eea4e1d8a20da784e7f2f92)](https://app.codacy.com/app/bertrand-benoit/bankAccountReportToQIF?utm_source=github.com&utm_medium=referral&utm_content=bertrand-benoit/bankAccountReportToQIF&utm_campaign=Badge_Grade_Dashboard)
+
 This is a free tool allowing to convert Bank PDF Account reports to QIF files.
 
 This script uses my [scripts-common](https://github.com/bertrand-benoit/scripts-common) project, you can find on GitHub.
