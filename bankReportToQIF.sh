@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Author: Bertrand Benoit <mailto:contact@bertrand-benoit.net>
-# Version: 3.0
+# Version: 3.1
 # Description: converts bank account report (in pdf) to QIF format.
 #
 # Cf QIF documentation: https://en.wikipedia.org/wiki/Quicken_Interchange_Format
@@ -69,11 +69,15 @@ EXCLUDED_PARTS_FROM_REPORT_PATTERN="$LAST_READ_CONFIG"
 checkAndSetConfig "patterns.excludedTransactions" "$CONFIG_TYPE_OPTION"
 EXCLUDED_TRANSACTION_PATTERN="$LAST_READ_CONFIG"
 
+## Defines configured dynamic mapping.
+loadConfigKeyValueList "map[.]account[.].*" "map[.]account[.]"
+declare -n ACCOUNT_MAPPING_KEY_VALUE_LIST="LAST_READ_CONFIG_KEY_VALUE_LIST"
+
 #####################################################
 #                Defines usages.
 #####################################################
 function usage {
-  echo -e "BNP Bank PDF Account Report Converter to QIF format, version 3.0."
+  echo -e "BNP Bank PDF Account Report Converter to QIF format, version 3.1."
   echo -e "usage: $0 -i|--input <pdf file> [-o|--output <QIF file>] [-y|--year <year>] [--debug <debug level>] [-h|--help]"
   echo -e "<input>\t\tbank report in PDF format"
   echo -e "<output>\tQIF format output file"
@@ -281,6 +285,21 @@ function extractInformation() {
   return 0
 }
 
+# Extracts transaction account for specified label, according to configuration if any.
+# usage: extractTransactionAccount <transaction label>
+function extractTransactionAccount() {
+  local _transactionLabel=${1,,}
+
+  # Checks if there is a key mapping on lowercase version of specified label.
+  for accountMappingKey in "${!ACCOUNT_MAPPING_KEY_VALUE_LIST[@]}"; do
+    # If so, returns the corresponding configured account.
+    [[ "$_transactionLabel" =~ $accountMappingKey ]] && echo "${ACCOUNT_MAPPING_KEY_VALUE_LIST[$accountMappingKey]}" && return 0
+  done
+
+  # Not found but ensures to exit with no error status.
+  return 0
+}
+
 # usage: toQIFFormat <input as text> <output QIF file>
 # <output QIF file> can be empty for print on standard output.
 function toQIFFormat() {
@@ -301,7 +320,13 @@ function toQIFFormat() {
   [ -n "$ACCOUNT_TYPE" ] && echo -e "!$ACCOUNT_TYPE" >> "$_output"
 
   # Adds all - not excluded - transactions.
-  ( grep -vE "$EXCLUDED_TRANSACTION_PATTERN" |awk -F';' '{ print "D" $1; print "P" $2; print "T" $3; print "^"; }' ) < "$_inputFile" >> "$_output"
+  while IFS=';' read -r transactionDate transactionLabel transactionAmount; do
+    # Checks if there is an account mapping matching this label.
+    transactionAccount=$( extractTransactionAccount "$transactionLabel" )
+    [ -n "$transactionAccount" ] && printf "L%s\n" "$transactionAccount" >> "$_output"
+
+    printf "D%s\nP%s\nT%s\n^\n" "$transactionDate" "$transactionLabel" "$transactionAmount" >> "$_output"
+  done < <( grep -vE "${EXCLUDED_TRANSACTION_PATTERN:-NothingToExclude}" "$_inputFile" )
 
   writeMessage "Transactions information converted to QIF format to $_output"
   return 0
