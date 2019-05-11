@@ -167,7 +167,7 @@ function manageValue() {
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
-  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_PATTERN" "$_inputFile" |grep -vE "$EXCLUDED_PARTS_FROM_REPORT_PATTERN" \
+  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_PATTERN" "$_inputFile" |grep -vE "${EXCLUDED_PARTS_FROM_REPORT_PATTERN:-NothingToExclude}" \
                               |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
@@ -290,7 +290,7 @@ function toQIFFormat() {
   # Informs.
   if [ "$DEBUG" -ge 1 ]; then
     writeMessage "These transaction(s) will be ignored:"
-    grep --silent -E "$EXCLUDED_TRANSACTION_PATTERN" "$_inputFile"
+    grep --silent -E "$EXCLUDED_TRANSACTION_PATTERN" "$_inputFile" || writeMessage "<none>"
   fi
 
   # Cleans output file if needed.
