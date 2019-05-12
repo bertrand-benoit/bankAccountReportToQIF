@@ -48,6 +48,8 @@ TOO_MUCH_POSITIVE_AMOUNT_WARNING_THRESHOLD="$LAST_READ_CONFIG"
 ## Defines various matching patterns.
 checkAndSetConfig "patterns.debitNCreditHeader" "$CONFIG_TYPE_OPTION"
 DEBIT_CREDIT_PATTERN="$LAST_READ_CONFIG"
+checkAndSetConfig "patterns.transactionLine" "$CONFIG_TYPE_OPTION"
+TRANSACTION_LINE_PATTERN="$LAST_READ_CONFIG"
 checkAndSetConfig "patterns.date" "$CONFIG_TYPE_OPTION"
 DATE_PATTERN="$LAST_READ_CONFIG"
 checkAndSetConfig "patterns.label.amountWithCurrency" "$CONFIG_TYPE_OPTION"
@@ -171,7 +173,7 @@ function manageValue() {
 
     # Writes to the output file.
     echo "$information" >> "$_tmpFile"
-  done < <( grep -E "^[ ]{1,3}[0-9]|^[ ]{5,20}[A-Z0-9+*]|$DEBIT_CREDIT_PATTERN" "$_inputFile" |grep -vE "${EXCLUDED_PARTS_FROM_REPORT_PATTERN:-NothingToExclude}" \
+  done < <( grep -E "$TRANSACTION_LINE_PATTERN|$DEBIT_CREDIT_PATTERN" "$_inputFile" |grep -vE "${EXCLUDED_PARTS_FROM_REPORT_PATTERN:-NothingToExclude}" \
                               |sed -e 's/USA \([0-9][0-9,]*\)USD+COMMISSION : \([0-9][0-9,]*\)/USA_COMMISSION/g;' \
                               |sed -E 's/[0-9],[0-9]{2}[ ]E.*TVA[ ]*=[ ]*[0-9]{2},[0-9]{2}[ ]%//' |sed -e 's/[ ]\([.,]\)[ ]/\1/g;' )
 
@@ -227,8 +229,8 @@ function extractInformation() {
   while IFS= read -r information; do
     # Checks if it is a date.
     if matchesOneOf "$information" "$DATE_PATTERN"; then
-      # According to the mode (if in label mode, date is ignored).
       [ "$DEBUG" -ge 3 ] && writeMessage "[extractInformation][mode=$_mode] Found a date in: $information"
+      # According to the mode (if in label mode, date is ignored).
       [ $_mode -eq $_MODE_LABEL ] && continue
 
       # A new date has been found, and we are not managing label, so considering we reach a new line.
@@ -323,7 +325,11 @@ function toQIFFormat() {
   while IFS=';' read -r transactionDate transactionLabel transactionAmount; do
     # Checks if there is an account mapping matching this label.
     transactionAccount=$( extractTransactionAccount "$transactionLabel" )
-    [ -n "$transactionAccount" ] && printf "L%s\n" "$transactionAccount" >> "$_output"
+    if [ -n "$transactionAccount" ]; then
+      printf "L%s\n" "$transactionAccount" >> "$_output"
+    else
+      [ "$DEBUG" -ge 1 ] && printf "DEBUG: No account mapping for transaction: %s\t%s\t%s\n" "$transactionDate" "$transactionAmount" "$transactionLabel"
+    fi
 
     printf "D%s\nP%s\nT%s\n^\n" "$transactionDate" "$transactionLabel" "$transactionAmount" >> "$_output"
   done < <( grep -vE "${EXCLUDED_TRANSACTION_PATTERN:-NothingToExclude}" "$_inputFile" )
