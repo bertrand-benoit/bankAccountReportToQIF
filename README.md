@@ -26,6 +26,115 @@ It contains default configuration for this tool, and should NOT be edited.
 
 You can/should create your own configuration file **~/.config/bankReportToQIF.conf** and override any value you want to adapt output QIF to your needs.
 
+### User configuration file sample
+This is a example of an user configuration file
+```bash
+## Defines various configuration.
+config.account.name="Actif:Actifs actuels:Compte cheques"
+
+## Defines various patterns.
+patterns.excludedPartsFromReport="BNP Paribas|bnpparibas.net|TOTAL DES OPERATIONS|SOLDE CREDITEUR|SOLDE DEBITEUR|Minitel|code secret|Votre conseiller|éclamation|Médiateur|votre numéro client|opérations courante|Commissions sur services|de votre autorisation|le TAEG effectif|La tarification|e tarif"
+patterns.label.removeMatchingParts=""
+
+## Defines various dynamic account mapping.
+# Finances.
+map.account.dgfip impot th="Depenses:Intérets Taxes Impôts:Impôts"
+map.account.d.g.f.i.p="Depenses:Intérets Taxes Impôts:Impôts"
+map.account.retrait dab="Depenses:Divers:Retrait distributeur"
+
+# Démarches administratives CNI, Passport ...
+map.account.photomaton saint denis="Depenses:Divers:Administratifs"
+map.account.timbre fiscal="Depenses:Divers:Administratifs"
+
+# Santé.
+map.account.c.p.a.m.="Revenus:Divers:Remboursement:CPAM (Securite sociale)"
+map.account.dr bainville="Depenses:Dépenses médicales:Ostéopathe"
+map.account.atoutbio="Depenses:Dépenses médicales:Remboursés:Médecins, Hopitaux, Cliniques ..."
+map.account.pharma="Depenses:Dépenses médicales:Remboursés:AvanceMedicaments"
+map.account.phie="Depenses:Dépenses médicales:Remboursés:AvanceMedicaments"
+
+# Numérique.
+map.account.www.aliexpress="Depenses:Informatique et Numérique"
+map.account.paypal="Depenses:Informatique et Numérique"
+map.account.amazon="Depenses:Informatique et Numérique"
+
+# Loisirs.
+map.account.kinep="Depenses:Tourisme, Vacances, Sorties ...:Cinéma"
+map.account.cinema="Depenses:Tourisme, Vacances, Sorties ...:Cinéma"
+map.account.ugc="Depenses:Tourisme, Vacances, Sorties ...:Cinéma"
+map.account.bowling="Depenses:Tourisme, Vacances, Sorties ..."
+map.account.lasermaxx="Depenses:Tourisme, Vacances, Sorties ..."
+map.account.mini golf="Depenses:Tourisme, Vacances, Sorties ..."
+map.account.hall du livre="Depenses:Tourisme, Vacances, Sorties ..."
+
+map.account.decathlon="Depenses:Divers:Activités sportives"
+map.account.ovive="Depenses:Divers:Activités sportives"
+map.account.nancy thermal="Depenses:Divers:Activités sportives"
+
+# Abonnement logement, énergie ...
+map.account.abonnement internet="Depenses:Abonnements:Internet"
+map.account.abonnement mobile="Depenses:Abonnements:Téléphone Portable"
+map.account.edf="Depenses:Abonnements:EDF-GDF:EDF"
+
+# Courses.
+map.account.lidl="Depenses:Alimentaire:Lidl"
+map.account.cora .. hyper="Depenses:Alimentaire:Cora"
+map.account.cora .. interne="Depenses:Alimentaire:Cora"
+map.account.cora toul="Depenses:Alimentaire:Cora"
+map.account.carrefour="Depenses:Alimentaire:Carrefour"
+map.account.e.leclerc="Depenses:Alimentaire:Leclerc"
+map.account.intermarche="Depenses:Alimentaire:Intermarché"
+map.account.auchan laxou="Depenses:Alimentaire:Autre"
+map.account.colruyt="Depenses:Alimentaire:Autre"
+
+map.account.lor n bio="Depenses:Alimentaire:MagasinBIO"
+map.account.natureo="Depenses:Alimentaire:MagasinBIO"
+map.account.naturalia="Depenses:Alimentaire:MagasinBIO"
+map.account.atout vrac="Depenses:Alimentaire:MagasinBIO"
+map.account.la vie claire="Depenses:Alimentaire:MagasinBIO"
+
+# Transport (carburant, train ...)
+map.account.cora to carbura="Depenses:Transports divers:Vehicule"
+map.account.cora to station="Depenses:Transports divers:Vehicule"
+map.account.super u="Depenses:Transports divers:Vehicule"
+map.account.horodateur="Depenses:Transports divers:Vehicule"
+map.account.indigo="Depenses:Transports divers:Vehicule"
+
+map.account.shell="Depenses:Transports divers:Vehicule"
+map.account.auchan carburan="Depenses:Transports divers:Vehicule"
+map.account.auchan essence="Depenses:Transports divers:Vehicule"
+map.account.carrefourstatio="Depenses:Transports divers:Vehicule"
+
+map.account.aprr="Depenses:Transports divers:Vehicule"
+map.account.feu vert="Depenses:Transports divers:Vehicule"
+
+map.account.sncf="Depenses:Transports divers:Train"
+
+map.account.keolis="Depenses:Transports divers:Divers"
+map.account.ratp="Depenses:Transports divers:Divers"
+map.account.transdev="Depenses:Transports divers:Divers"
+
+# Boulangerie.
+map.account.battavoine="Depenses:Restaurant:Boulangerie"
+map.account.boul. baudet="Depenses:Restaurant:Boulangerie"
+map.account.boul pati rene="Depenses:Restaurant:Boulangerie"
+map.account.pain et gateau="Depenses:Restaurant:Boulangerie"
+map.account.paul="Depenses:Restaurant:Boulangerie"
+map.account.brioche dorees="Depenses:Restaurant:Boulangerie"
+map.account.vanille chocola="Depenses:Restaurant:Boulangerie"
+
+# Restaurant.
+map.account.fetch="Depenses:Restaurant"
+map.account.spezia="Depenses:Restaurant"
+map.account.burger king="Depenses:Restaurant"
+map.account.le 167="Depenses:Restaurant"
+map.account.le voyou="Depenses:Restaurant"
+map.account.angeluzzo="Depenses:Restaurant"
+map.account.cerise="Depenses:Restaurant"
+map.account.line wok="Depenses:Restaurant"
+map.account.arrosoir="Depenses:Restaurant"
+```
+
 ## Usage
 ```bash
 BNP Bank PDF Account Report Converter to QIF format, version 3.0.
