@@ -1,10 +1,12 @@
+:warning: This project is now hosted on [Gitlab](https://gitlab.com/bertrand-benoit/bankAccountReportToQIF); switch to it to get newer versions.
+
 # Bank Account Report To QIF Converter version 3.1.0
 
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/b9d06cb55eea4e1d8a20da784e7f2f92)](https://app.codacy.com/app/bertrand-benoit/bankAccountReportToQIF?utm_source=github.com&utm_medium=referral&utm_content=bertrand-benoit/bankAccountReportToQIF&utm_campaign=Badge_Grade_Dashboard)
 
 This is a free tool allowing to convert Bank PDF Account reports to QIF files.
 
-This script uses my [scripts-common](https://github.com/bertrand-benoit/scripts-common) project, you can find on GitHub.
+This script uses my [scripts-common](https://gitlab.com/bertrand-benoit/scripts-common) project.
 
 ## Requirements
 This tool used [pdftotext](https://poppler.freedesktop.org/) which must be priorly installed. It is generally available with your package manager.
@@ -16,10 +18,10 @@ git submodule init
 git submodule update
 ```
 
-This way, [scripts-common](https://github.com/bertrand-benoit/scripts-common) project will be available and you can use this tool.
+This way, [scripts-common](https://gitlab.com/bertrand-benoit/scripts-common) project will be available and you can use this tool.
 
 ## Configuration files
-This tools uses the configuration file feature of the [scripts-common](https://github.com/bertrand-benoit/scripts-common) project.
+This tools uses the configuration file feature of the [scripts-common](https://gitlab.com/bertrand-benoit/scripts-common) project.
 
 The global configuration file, called **default.conf**, is in the root directory of this repository.
 It contains default configuration for this tool, and should NOT be edited.
@@ -159,7 +161,7 @@ Convert Bank account report of an older year, let's say February 2002:
 
 ## Contributing
 Don't hesitate to [contribute](https://opensource.guide/how-to-contribute/) or to contact me if you want to improve the project.
-You can [report issues or request features](https://github.com/bertrand-benoit/bankAccountReportToQIF/issues) and propose [pull requests](https://github.com/bertrand-benoit/bankAccountReportToQIF/pulls).
+You can [report issues or request features](https://gitlab.com/bertrand-benoit/bankAccountReportToQIF/issues) and propose [merge requests](https://gitlab.com/bertrand-benoit/bankAccountReportToQIF/merge_requests).
 
 ## Versioning
 The versioning scheme we use is [SemVer](http://semver.org/).
